@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using Mirror;
 
 public class MovementPlayer : NetworkBehaviour
@@ -19,29 +16,38 @@ public class MovementPlayer : NetworkBehaviour
 
     [Header("Unity Components")]
     [SerializeField] private Camera playerCamera;
+    [SerializeField] private GameObject playerObject;
     [SerializeField] private Transform playerRotationPoint;
     private Rigidbody playerRb;
+    private Vector3 direction;
 
     private void Start()
     {
         playerRb = gameObject.GetComponent<Rigidbody>();
-    }
+        if (this.isLocalPlayer)
+            playerObject.SetActive(false);
 
-    private void Update()
-    {
-        SprintCheck();
-        SprintCamera();
+        if (!this.isLocalPlayer)
+            playerCamera.gameObject.SetActive(false);
     }
 
     private void FixedUpdate()
     {
+        if (!this.isLocalPlayer)
+            return;
+
+        SprintCheck();
+        SprintCamera();
         Jump();
         InitMovement();
+        LookDirection(new Vector3(0.0f, playerCamera.transform.eulerAngles.y, 0.0f));
     }
 
     private void LookDirection(Vector3 lookDirection)
     {
-        playerRotationPoint.rotation = Quaternion.LookRotation(lookDirection);
+        var cameraDirection = playerCamera.transform.eulerAngles.y;
+        var lookDirectionVector = Quaternion.Euler(0, cameraDirection, 0) * Vector3.forward;
+        playerRotationPoint.rotation = Quaternion.LookRotation(lookDirectionVector);
     }
 
     #region Jump
@@ -104,6 +110,7 @@ public class MovementPlayer : NetworkBehaviour
         MoveBackwards();
         MoveLeft();
         MoveRight();
+        Move(direction);
     }
 
     private void Move(Vector3 direction)
@@ -111,13 +118,14 @@ public class MovementPlayer : NetworkBehaviour
         if (!isGrounded)
             direction = direction / 2;
         playerRb.MovePosition(this.transform.position + (direction * Time.deltaTime * speed));
+        this.direction = Vector3.zero;
     }
 
     private Vector3 CalDirection(Vector3 moveDirection)
     {
         var cameraDirection = playerCamera.transform.eulerAngles.y;
         var finalMoveDirection = Quaternion.Euler(0, cameraDirection, 0) * moveDirection;
-        LookDirection(finalMoveDirection);
+        //LookDirection(finalMoveDirection);
         return finalMoveDirection;
     }
 
@@ -130,7 +138,7 @@ public class MovementPlayer : NetworkBehaviour
         if (isSprinting)
             vector *= sprintSpeedModifier;
 
-        Move(CalDirection(vector));
+        direction += CalDirection(vector);
     }
 
     private void MoveBackwards()
@@ -138,7 +146,7 @@ public class MovementPlayer : NetworkBehaviour
         if (!Input.GetKey(KeyCode.S))
             return;
 
-        Move(CalDirection(Vector3.back));
+        direction += CalDirection(Vector3.back);
     }
 
     private void MoveRight()
@@ -146,7 +154,7 @@ public class MovementPlayer : NetworkBehaviour
         if (!Input.GetKey(KeyCode.D))
             return;
 
-        Move(CalDirection(Vector3.right));
+        direction += CalDirection(Vector3.right);
     }
 
     private void MoveLeft()
@@ -154,7 +162,7 @@ public class MovementPlayer : NetworkBehaviour
         if (!Input.GetKey(KeyCode.A))
             return;
 
-        Move(CalDirection(Vector3.left));
+        direction += CalDirection(Vector3.left);
     }
     #endregion
 }
